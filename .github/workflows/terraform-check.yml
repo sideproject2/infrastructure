@@ -1,0 +1,81 @@
+# Terraform 코드 포맷 및 환경별 구성 검증
+name: 🏗️ 테라폼 인프라 구성 검증
+
+# Pull Request와 main 브랜치 변경 시 자동 실행
+on:
+  pull_request:
+    paths:
+      - '**/*.tf'
+      - '**/*.tfvars.example'
+      - '.github/workflows/terraform-check.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.tf'
+      - '**/*.tfvars.example'
+      - '.github/workflows/terraform-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  # 전체 Terraform 파일 포맷 검사
+  fmt:
+    name: 🧹 테라폼 포맷 검사
+    runs-on: ubuntu-latest
+    steps:
+      # 저장소 checkout
+      - name: 📥 저장소 코드 가져오기
+        uses: actions/checkout@v4
+
+      # CI에서 사용할 Terraform 버전 고정
+      - name: 🧰 테라폼 CLI 설정
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.0'
+
+      # 로컬 act 실행 환경에서도 Terraform CLI 실행 권한 보장
+      - name: 🔐 테라폼 CLI 실행 권한 확인
+        run: chmod +x "$TERRAFORM_CLI_PATH/terraform"
+
+      # 포맷이 맞지 않으면 workflow 실패
+      - name: 🔍 코드 포맷 확인
+        run: terraform fmt -check -recursive
+
+  # 개발 및 운영 환경별 Terraform 구성 검증
+  validate:
+    name: ✅ ${{ matrix.target }} 구성 검증
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - dev/frontend
+          - dev/backend
+          - prod/frontend
+          - prod/backend
+    defaults:
+      run:
+        working-directory: environments/${{ matrix.target }}
+    steps:
+      # 저장소 checkout
+      - name: 📥 저장소 코드 가져오기
+        uses: actions/checkout@v4
+
+      # CI에서 사용할 Terraform 버전 고정
+      - name: 🧰 테라폼 CLI 설정
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.0'
+
+      # 로컬 act 실행 환경에서도 Terraform CLI 실행 권한 보장
+      - name: 🔐 테라폼 CLI 실행 권한 확인
+        run: chmod +x "$TERRAFORM_CLI_PATH/terraform"
+
+      # 원격 backend 없이 provider와 모듈 구성만 초기화
+      - name: ⚙️ 원격 backend 없이 초기화
+        run: terraform init -backend=false
+
+      # Terraform 구성 유효성 검사
+      - name: 🔍 테라폼 구성 유효성 검사
+        run: terraform validate

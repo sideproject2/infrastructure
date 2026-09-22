@@ -1,0 +1,7 @@
+environment = "dev"
+name        = "frontend-dev"
+tags = {
+  environment = "dev"
+  managed_by  = "terraform"
+  service     = "frontend"
+}
